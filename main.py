@@ -9,7 +9,6 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 import psycopg2
 from psycopg2 import pool
-from mangum import Mangum
 
 # ── Load .env ────────────────────────────────────────────────
 load_dotenv()
@@ -47,8 +46,6 @@ def _get_pool():
 def get_db():
     return _get_pool().get_connection()
 
-# ── Netlify Handler ──────────────────────────────────────────
-handler = Mangum(app)
 
 
 # ── Routes ───────────────────────────────────────────────────
