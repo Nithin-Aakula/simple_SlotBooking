@@ -7,42 +7,47 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
-import mysql.connector
-from mysql.connector import pooling
+import psycopg2
+from psycopg2 import pool
+from mangum import Mangum
 
 # ── Load .env ────────────────────────────────────────────────
 load_dotenv()
 
 # ── App & Templates ──────────────────────────────────────────
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app = FastAPI(title="Slot Booking System")
-templates = Jinja2Templates(directory="templates")
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
-# ── MySQL Connection Pool (lazy init) ────────────────────────
+# ── PostgreSQL Connection Pool ───────────────────────────────
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+# Fallback to individual vars if DATABASE_URL is not set
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
-    "user": os.getenv("DB_USER", "root"),
+    "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD", ""),
     "database": os.getenv("DB_NAME", "booking_system"),
 }
 
 _pool = None
 
-
 def _get_pool():
-    """Create the connection pool on first use (lazy)."""
     global _pool
     if _pool is None:
-        _pool = pooling.MySQLConnectionPool(
-            pool_name="booking_pool",
-            pool_size=5,
-            **DB_CONFIG,
-        )
+        if DATABASE_URL:
+            # Use connection string (Neon style)
+            _pool = pool.SimpleConnectionPool(1, 10, DATABASE_URL)
+        else:
+            # Use individual parameters
+            _pool = pool.SimpleConnectionPool(1, 10, **DB_CONFIG)
     return _pool
 
-
 def get_db():
-    """Grab a connection from the pool."""
     return _get_pool().get_connection()
+
+# ── Netlify Handler ──────────────────────────────────────────
+handler = Mangum(app)
 
 
 # ── Routes ───────────────────────────────────────────────────
@@ -52,8 +57,9 @@ def index(request: Request, msg: str = "", error: str = ""):
     """Dashboard — show every slot, color-coded by availability."""
     slots = []
     try:
+        from psycopg2.extras import RealDictCursor
         conn = get_db()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
         cursor.execute(
             """
             SELECT s.id, s.start_time, s.end_time, s.is_booked,
@@ -65,7 +71,7 @@ def index(request: Request, msg: str = "", error: str = ""):
         )
         slots = cursor.fetchall()
         cursor.close()
-        conn.close()
+        _pool.putconn(conn)
     except Exception as e:
         import traceback
         with open("error.log", "w") as f:
@@ -86,11 +92,13 @@ def book_slot(
     user_email: str = Form(...),
 ):
     """Book a slot — wrapped in a transaction with SELECT … FOR UPDATE."""
+    from psycopg2.extras import RealDictCursor
     conn = get_db()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
-        conn.start_transaction()
+        # PostgreSQL handles transactions differently. 
+        # By default, psycopg2 starts a transaction automatically.
 
         # Lock the row to prevent double-booking
         cursor.execute(
@@ -119,8 +127,8 @@ def book_slot(
         # Create booking record
         cursor.execute(
             """
-            INSERT INTO bookings (slot_id, user_name, user_email)
-            VALUES (%s, %s, %s)
+            INSERT INTO bookings (slot_id, user_name, user_email, created_at)
+            VALUES (%s, %s, %s, NOW())
             """,
             (slot_id, user_name, user_email),
         )
@@ -138,4 +146,4 @@ def book_slot(
         )
     finally:
         cursor.close()
-        conn.close()
+        _pool.putconn(conn)
