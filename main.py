@@ -44,7 +44,7 @@ def _get_pool():
     return _pool
 
 def get_db():
-    return _get_pool().get_connection()
+    return _get_pool().getconn()
 
 
 
