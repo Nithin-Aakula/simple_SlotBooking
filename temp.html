@@ -1,0 +1,199 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slot Booking System</title>
+  <meta name="description" content="Book available time slots quickly and easily." />
+
+  <!-- Tailwind CSS v3 CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwindcss.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand:   { 50:'#eef2ff', 100:'#e0e7ff', 500:'#6366f1', 600:'#4f46e5', 700:'#4338ca' },
+            surface: { 800:'#1e1b2e', 900:'#13111c' },
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Google Fonts — Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* smooth global transitions */
+    *, *::before, *::after { transition: background-color .2s, box-shadow .2s, transform .15s; }
+    body { font-family: 'Inter', sans-serif; }
+
+    /* card hover lift */
+    .slot-card:hover { transform: translateY(-4px); }
+
+    /* modal backdrop */
+    .modal-backdrop {
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* fade-in keyframes */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-up { animation: fadeUp .4s ease-out both; }
+
+    /* stagger children */
+    .slot-card:nth-child(1)  { animation-delay: .05s; }
+    .slot-card:nth-child(2)  { animation-delay: .10s; }
+    .slot-card:nth-child(3)  { animation-delay: .15s; }
+    .slot-card:nth-child(4)  { animation-delay: .20s; }
+    .slot-card:nth-child(5)  { animation-delay: .25s; }
+    .slot-card:nth-child(6)  { animation-delay: .30s; }
+    .slot-card:nth-child(7)  { animation-delay: .35s; }
+    .slot-card:nth-child(8)  { animation-delay: .40s; }
+
+    /* pulse dot */
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .dot-pulse { animation: pulse-dot 1.8s ease-in-out infinite; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-surface-900 text-gray-100">
+
+  <!-- ── Flash Messages ──────────────────────────────────── -->
+  
+
+  
+  <div id="flash-error"
+       class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-5 py-3 rounded-xl
+              bg-red-500/90 text-white font-medium shadow-lg shadow-red-500/25 animate-fade-up">
+    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+    Could not connect to the database. Please ensure MySQL is running.
+  </div>
+  
+
+  <!-- ── Header ──────────────────────────────────────────── -->
+  <header class="border-b border-white/5">
+    <div class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <!-- logo mark -->
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-500
+                    flex items-center justify-center shadow-lg shadow-brand-500/30">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">Slot Booking</h1>
+          <p class="text-xs text-gray-400 -mt-0.5">Quick &amp; simple scheduling</p>
+        </div>
+      </div>
+
+      <!-- legend -->
+      <div class="hidden sm:flex items-center gap-5 text-sm text-gray-400">
+        <span class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 dot-pulse"></span> Available
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span> Booked
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Slot Grid ───────────────────────────────────────── -->
+  <main class="max-w-6xl mx-auto px-6 py-10">
+    <h2 class="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-6">Available Slots</h2>
+
+    
+    <div class="text-center py-20 text-gray-500">
+      <p class="text-lg font-medium">No slots configured yet.</p>
+      <p class="text-sm mt-1">Run <code class="bg-white/5 px-2 py-0.5 rounded">database.sql</code> to seed sample data.</p>
+    </div>
+    
+  </main>
+
+  <!-- ── Booking Modal ───────────────────────────────────── -->
+  <div id="booking-modal" class="modal-backdrop fixed inset-0 z-40 hidden items-center justify-center">
+    <div class="bg-surface-800 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-7 animate-fade-up">
+      <div class="flex items-center justify-between mb-5">
+        <h3 class="text-lg font-bold">Confirm Booking</h3>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-white p-1">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <p class="text-sm text-gray-400 mb-5">
+        You're booking the <span id="modal-time" class="text-white font-medium"></span> slot.
+      </p>
+
+      <form id="booking-form" method="post" class="space-y-4">
+        <div>
+          <label for="user_name" class="block text-xs font-medium text-gray-400 mb-1.5">Full Name</label>
+          <input id="user_name" name="user_name" type="text" required placeholder="Jane Doe"
+                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm
+                        placeholder:text-gray-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"/>
+        </div>
+        <div>
+          <label for="user_email" class="block text-xs font-medium text-gray-400 mb-1.5">Email Address</label>
+          <input id="user_email" name="user_email" type="email" required placeholder="jane@example.com"
+                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm
+                        placeholder:text-gray-600 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500"/>
+        </div>
+        <button type="submit"
+                class="w-full py-3 rounded-xl text-sm font-semibold
+                       bg-gradient-to-r from-brand-500 to-purple-500
+                       hover:from-brand-600 hover:to-purple-600
+                       shadow-lg shadow-brand-500/20 hover:shadow-brand-500/40
+                       active:scale-[.97]">
+          Confirm Booking
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── Scripts ─────────────────────────────────────────── -->
+  <script>
+    const modal = document.getElementById('booking-modal');
+    const form  = document.getElementById('booking-form');
+    const timeLabel = document.getElementById('modal-time');
+
+    function openModal(slotId, start, end) {
+      form.action = `/book/${slotId}`;
+      timeLabel.textContent = `${start} – ${end}`;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      document.getElementById('user_name').focus();
+    }
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      form.reset();
+    }
+
+    // close on backdrop click
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+    // close on Escape key
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+
+    // auto-hide flash messages after 4 seconds
+    document.querySelectorAll('#flash-success, #flash-error').forEach(el => {
+      setTimeout(() => { el.style.opacity = '0'; el.style.transform = 'translateY(-12px)'; setTimeout(() => el.remove(), 300); }, 4000);
+    });
+  </script>
+</body>
+</html>
