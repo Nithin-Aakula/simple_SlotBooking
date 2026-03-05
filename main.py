@@ -20,7 +20,8 @@ app = FastAPI(title="Slot Booking System")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ── PostgreSQL Connection Pool ───────────────────────────────
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Netlify/Neon integration often uses NETLIFY_DATABASE_URL or DATABASE_URL
+DATABASE_URL = os.getenv("DATABASE_URL") or os.getenv("NETLIFY_DATABASE_URL")
 
 # Fallback to individual vars if DATABASE_URL is not set
 DB_CONFIG = {
